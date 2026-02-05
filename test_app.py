@@ -33,3 +33,32 @@ def test_create_url_missing_url(client):
     assert response.status_code == 400
 
     assert 'error' in response.json
+
+def test_redirect_valid_code(client):
+    """Test that valid short code redirects to original URL"""
+    initial_response = client.post('urls', json={'url': 'https://google.com'})
+    short_code = initial_response.json['short_code']
+
+    response = client.get(f'/{short_code}')
+
+    assert response.status_code in [301, 302]
+    assert response.location == 'https://google.com'
+
+def test_redirect_invalid_code(client):
+    """Test that invalid short code returns 404"""
+    response = client.get('/INVALID')
+
+    assert response.status_code == 404
+    assert 'error' in response.json
+
+def test_redirect_incremental_clicks(client):
+    """Test that valid short code redirects to original URL"""
+    initial_response = client.post('urls', json={'url': 'https://google.com'})
+    short_code = initial_response.json['short_code']
+
+    client.get(f'/{short_code}')
+
+    # Check clicks were tracked (we'll build stats endpoint tomorrow)
+    # For now, just verify redirect still works after multiple accesses
+    response = client.get(f'/{short_code}')
+    assert response.status_code in [301, 302]

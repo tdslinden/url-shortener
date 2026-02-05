@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, redirect
 import random
 import string
 
@@ -34,6 +34,24 @@ def create_url():
     }
     return jsonify({"short_code": short_code, 
                     "short_url": f'http://localhost:5000/{short_code}'}), 201
-  
+
+# Flask matches routes in order they're defined
+# /health endpoint can be mistaken for short code 
+# if definition was after this definition
+@app.route('/<short_code>', methods=['GET'])
+def redirect_to_url(short_code):
+    
+    # Use get because it returns None if key doesn't exist 
+    # urls[short_code] raises KeyError
+    url_data = urls.get(short_code)
+
+    if not url_data:
+        return jsonify({"error": "Invalid short code"}), 404
+    
+    urls[short_code]['clicks'] += 1
+
+    destination_url = url_data['original_url']
+    return redirect(destination_url, 301)
+
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
