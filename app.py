@@ -103,11 +103,3 @@ def get_stats(short_code):
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
-
-
-# Requirements:
-
-# GET request to /urls/<short_code>/stats
-# Returns JSON with original URL, click count, creation time
-# Returns 404 if code doesn't exist
-# Add input validation to POST endpoint (validate URLs are actually valid)
