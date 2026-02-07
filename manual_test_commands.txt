@@ -1,0 +1,32 @@
+# Create a URL
+curl -X POST http://127.0.0.1:5000/urls \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://google.com"}'
+
+# Note the short_code (e.g., "8VTZWl")
+
+# Access it a few times (increment clicks)
+curl -L http://127.0.0.1:5000/8VTZWl
+curl -L http://127.0.0.1:5000/8VTZWl
+curl -L http://127.0.0.1:5000/8VTZWl
+
+# Get stats
+echo getting stats...
+curl -s http://127.0.0.1:5000/urls/8VTZWl/stats | jq .
+
+# Should show:
+# {
+#   "short_code": "8VTZWl",
+#   "original_url": "https://google.com",
+#   "clicks": 3,
+#   "created_at": "2026-02-13T21:30:45.123456"
+# }
+
+# Test validation - these should fail
+curl -X POST http://127.0.0.1:5000/urls \
+  -H "Content-Type: application/json" \
+  -d '{"url": "not-a-url"}'
+
+curl -X POST http://127.0.0.1:5000/urls \
+  -H "Content-Type: application/json" \
+  -d '{"url": "google.com"}'
