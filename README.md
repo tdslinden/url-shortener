@@ -242,7 +242,7 @@ Building this project taught me:
 Software Engineer | Currently @ Sage | Building in public
 
 - GitHub: [@tdslinden](https://github.com/tdslinden)
-- LinkedIn: [LinkedIn] (https://www.linkedin.com/in/lindenkyaw/)
+- LinkedIn: [LinkedIn](https://www.linkedin.com/in/lindenkyaw/)
 - Portfolio: [Coming soon]
 
 ---
