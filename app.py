@@ -25,11 +25,34 @@ def health():
     return jsonify({"status": "healthy"}), 200
 
 def generate_code(length=6):
-    characters = string.ascii_letters + string.digits  # a-z, A-Z, 0-9
+    """
+    Generate a random alphanumeric short code.
+    
+    Uses uppercase, lowercase letters, and digits for maximum entropy.
+    With 6 characters and 62 possible values per position, generates
+    62^6 (≈56 billion) unique combinations.
+    
+    Args:
+        length (int): Number of characters in short code. Default 6.
+        
+    Returns:
+        str: Random short code (e.g., "aB3xYz")
+        
+    Note:
+        Production systems should check for collisions, though probability
+        is negligible for datasets under 1 million URLs.
+    """
+    characters = string.ascii_letters + string.digits
     return ''.join(random.choices(characters, k=length))
 
 @app.route('/urls', methods=['POST'])
 def create_url():
+    """
+    Create a short URL from a long URL
+    
+    Expected JSON body: {"url": "https://example.com"}
+    Returns: {"short_code": "abc123", "short_url": "http://localhost:5000/abc123"}
+    """
     data = request.json
 
     try:
@@ -54,11 +77,20 @@ def create_url():
     return jsonify({"short_code": short_code, 
                     "short_url": f'http://localhost:5000/{short_code}'}), 201
 
-# Flask matches routes in order they're defined
-# /health endpoint can be mistaken for short code 
-# if definition was after this definition
 @app.route('/<short_code>', methods=['GET'])
 def redirect_to_url(short_code):
+    """
+    Redirect short code to original URL
+    
+    URL parameter: short_code (captured from path)
+    Example: GET /abc123 → redirects to https://google.com
+    
+    Returns 404 if short code doesn't exist
+
+    Flask matches routes in order they're defined
+    /health endpoint can be mistaken for a "short_code"
+    if it was defined AFTER this function
+    """
     
     # Use get because it returns None if key doesn't exist 
     # urls[short_code] raises KeyError
