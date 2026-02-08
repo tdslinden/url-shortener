@@ -69,7 +69,21 @@ def create_url():
     except Exception as e:
         return jsonify({"error": "URL is required"}), 400
 
+    max_retries = 10
+    retries = 0
     short_code = generate_code()
+
+    while short_code in urls and retries < max_retries:
+        short_code = generate_code()
+        retries += 1
+
+    if retries == max_retries:
+        return (
+            jsonify(
+                {"error": "Failed to generate unique short code. Please try again."}
+            ),
+            500,
+        )
 
     original_url = data["url"]
     urls[short_code] = {

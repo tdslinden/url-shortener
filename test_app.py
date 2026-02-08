@@ -110,3 +110,15 @@ def test_create_url_format_invalid(client):
     response = client.post("/urls", json={"url": ""})
     assert response.status_code == 400
     assert "error" in response.json
+
+
+def test_no_duplicate_codes(client):
+    url_set = set()
+    set_length = 100
+
+    for i in range(set_length):
+        response = client.post("urls", json={"url": "https://google.com"})
+        short_code = response.json["short_code"]
+        url_set.add(short_code)
+
+    assert len(url_set) == set_length
