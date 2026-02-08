@@ -4,52 +4,58 @@ from datetime import datetime
 import random
 import string
 
+
 class InputURL(BaseModel):
     """
     Pydantic model for URL validation
-    
+
     Validates that:
     - 'url' field exists
     - 'url' is a valid HTTP/HTTPS URL
     - URL has proper format (scheme, domain, etc.)
     """
+
     url: HttpUrl
+
 
 # temporary in-memory storage for URLs
 urls = {}
 
 app = Flask(__name__)
 
-@app.route('/health', methods=['GET'])
+
+@app.route("/health", methods=["GET"])
 def health():
     return jsonify({"status": "healthy"}), 200
+
 
 def generate_code(length=6):
     """
     Generate a random alphanumeric short code.
-    
+
     Uses uppercase, lowercase letters, and digits for maximum entropy.
     With 6 characters and 62 possible values per position, generates
     62^6 (≈56 billion) unique combinations.
-    
+
     Args:
         length (int): Number of characters in short code. Default 6.
-        
+
     Returns:
         str: Random short code (e.g., "aB3xYz")
-        
+
     Note:
         Production systems should check for collisions, though probability
         is negligible for datasets under 1 million URLs.
     """
     characters = string.ascii_letters + string.digits
-    return ''.join(random.choices(characters, k=length))
+    return "".join(random.choices(characters, k=length))
 
-@app.route('/urls', methods=['POST'])
+
+@app.route("/urls", methods=["POST"])
 def create_url():
     """
     Create a short URL from a long URL
-    
+
     Expected JSON body: {"url": "https://example.com"}
     Returns: {"short_code": "abc123", "short_url": "http://localhost:5000/abc123"}
     """
@@ -65,53 +71,59 @@ def create_url():
 
     short_code = generate_code()
 
-    # TODO: In production, check if short_code already exists (collision)
-    # For now, collision probability is negligible
-
-    original_url = data['url']
+    original_url = data["url"]
     urls[short_code] = {
-        'original_url': original_url,
-        'clicks': 0,
-        'created_at': datetime.now().isoformat()
+        "original_url": original_url,
+        "clicks": 0,
+        "created_at": datetime.now().isoformat(),
     }
-    return jsonify({"short_code": short_code, 
-                    "short_url": f'http://localhost:5000/{short_code}'}), 201
+    return (
+        jsonify(
+            {
+                "short_code": short_code,
+                "short_url": f"http://localhost:5000/{short_code}",
+            }
+        ),
+        201,
+    )
 
-@app.route('/<short_code>', methods=['GET'])
+
+@app.route("/<short_code>", methods=["GET"])
 def redirect_to_url(short_code):
     """
     Redirect short code to original URL
-    
+
     URL parameter: short_code (captured from path)
     Example: GET /abc123 → redirects to https://google.com
-    
+
     Returns 404 if short code doesn't exist
 
     Flask matches routes in order they're defined
     /health endpoint can be mistaken for a "short_code"
     if it was defined AFTER this function
     """
-    
-    # Use get because it returns None if key doesn't exist 
+
+    # Use get because it returns None if key doesn't exist
     # urls[short_code] raises KeyError
     url_data = urls.get(short_code)
 
     if not url_data:
         return jsonify({"error": "Invalid short code"}), 404
-    
-    urls[short_code]['clicks'] += 1
 
-    destination_url = url_data['original_url']
+    urls[short_code]["clicks"] += 1
+
+    destination_url = url_data["original_url"]
     return redirect(destination_url, 301)
 
-@app.route('/urls/<short_code>/stats', methods=['GET'])
+
+@app.route("/urls/<short_code>/stats", methods=["GET"])
 def get_stats(short_code):
     """
     Get statistics for a short URL
-    
+
     URL parameter: short_code
     Returns: JSON with original_url, clicks, created_at
-    
+
     Example response:
     {
         "short_code": "abc123",
@@ -125,13 +137,19 @@ def get_stats(short_code):
 
     if not url_data:
         return jsonify({"error": "Invalid short code"}), 404
-    
-    return jsonify({
-        "short_code": short_code,
-        "original_url": url_data['original_url'],
-        "clicks": url_data['clicks'],
-        "created_at": url_data['created_at'],
-    }), 200
 
-if __name__ == '__main__':
+    return (
+        jsonify(
+            {
+                "short_code": short_code,
+                "original_url": url_data["original_url"],
+                "clicks": url_data["clicks"],
+                "created_at": url_data["created_at"],
+            }
+        ),
+        200,
+    )
+
+
+if __name__ == "__main__":
     app.run(debug=True, port=5000)
