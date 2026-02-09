@@ -5,6 +5,7 @@ import random
 import string
 import os
 
+BASE_URL = os.environ.get('BASE_URL', 'http://127.0.0.1:5000')
 
 class InputURL(BaseModel):
     """
@@ -96,7 +97,7 @@ def create_url():
         jsonify(
             {
                 "short_code": short_code,
-                "short_url": f"http://localhost:5000/{short_code}",
+                "short_url": f"{BASE_URL}/{short_code}",
             }
         ),
         201,
