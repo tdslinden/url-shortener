@@ -3,6 +3,7 @@ from pydantic import BaseModel, HttpUrl, ValidationError
 from datetime import datetime
 import random
 import string
+import os
 
 
 class InputURL(BaseModel):
@@ -166,4 +167,11 @@ def get_stats(short_code):
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    # Get port from environment (Railway sets this) or default to 5000
+    port = int(os.environ.get("PORT", 5000))
+
+    # Get debug mode from environment (default False for production)
+    debug = os.environ.get("DEBUG", "false").lower() == "true"
+
+    # host='0.0.0.0' allows external connections (required for Railway)
+    app.run(host="0.0.0.0", port=port, debug=debug)
