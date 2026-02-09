@@ -122,3 +122,70 @@ def test_no_duplicate_codes(client):
         url_set.add(short_code)
 
     assert len(url_set) == set_length
+
+
+def test_collision_detection_retries(client, monkeypatch):
+    """Test that collision detection retries when code already exists"""
+    import app as app_module
+
+    # Track how many times generate_code was called
+    call_count = 0
+
+    def mock_generate_code():
+        """Mock that returns predictable codes"""
+        nonlocal call_count
+        call_count += 1
+
+        if call_count == 1:
+            return "COLLISION"  # First call returns a code we'll make exist
+        else:
+            return f"UNIQUE{call_count}"  # Subsequent calls return unique codes
+
+    app_module.urls["COLLISION"] = {
+        "original_url": "some_url",
+        "clicks": 0,
+        "created_at": "some_date",
+    }
+
+    # Replace generate_code with mock function
+    monkeypatch.setattr(app_module, "generate_code", mock_generate_code)
+
+    response = client.post("urls", json={"url": "https://google.com"})
+    short_code = response.json["short_code"]
+
+    assert response.status_code == 201
+    assert not short_code == "COLLISION"
+    assert short_code == "UNIQUE2"
+    assert call_count == 2
+
+    # Cleanup remove the test collision short_code
+    del app_module.urls["COLLISION"]
+
+
+def test_collision_detection_max_retries_exceeded(client, monkeypatch):
+    """Test error when all retry attempts result in collisions"""
+    import app as app_module
+
+    def mock_generate_code():
+        """Always returns the same existing code"""
+        return "COLLISION"
+
+    app_module.urls["COLLISION"] = {
+        "original_url": "some_url",
+        "clicks": 0,
+        "created_at": "some_date",
+    }
+
+    # Replace generate_code with mock function
+    monkeypatch.setattr(app_module, "generate_code", mock_generate_code)
+
+    response = client.post("urls", json={"url": "https://google.com"})
+
+    assert response.status_code == 500
+    assert "error" in response.json
+    assert (
+        "Failed to generate unique short code. Please try again."
+        == response.json["error"]
+    )
+
+    del app_module.urls["COLLISION"]
