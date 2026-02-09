@@ -2,7 +2,8 @@
 
 A production-ready URL shortening service built with Python, Flask, and Pydantic. Converts long URLs into short, shareable links with click tracking and analytics.
 
-🔗 **Live Demo:** [Coming Sunday]  
+🔗 **Live Demo:** https://url-shortener-production-0431.up.railway.app/
+🚀 **Status:** ![Deployed](https://img.shields.io/badge/status-live-success)
 📊 **Tech Stack:** Python 3.11 | Flask | Pydantic | pytest
 
 ---
@@ -18,12 +19,56 @@ A production-ready URL shortening service built with Python, Flask, and Pydantic
 
 ---
 
+## 🎯 Quick Demo
+
+Try the live API right now - no installation needed!
+
+### Create a Short URL
+```bash
+curl -X POST https://url-shortener-production-0431.up.railway.app/urls \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://github.com/tdslinden/url-shortener"}'
+```
+
+**Response:**
+```json
+{
+  "short_code": "aB3xYz",
+  "short_url": "https://url-shortener-production-0431.up.railway.app/aB3xYz"
+}
+```
+
+### Test the Redirect
+Visit the short URL in your browser:
+```
+https://url-shortener-production-0431.up.railway.app/aB3xYz
+```
+→ Redirects to https://github.com/tdslinden/url-shortener
+
+### View Statistics
+```bash
+curl https://url-shortener-production-0431.up.railway.app/urls/aB3xYz/stats
+```
+
+**Response:**
+```json
+{
+  "short_code": "aB3xYz",
+  "original_url": "https://github.com/tdslinden/url-shortener",
+  "clicks": 5,
+  "created_at": "2026-02-15T10:30:00.123456"
+}
+```
+
+---
+
 ## API Documentation
 
 ### Base URL
-```
-http://localhost:5000
-```
+**Production:** `https://url-shortener-production-0431.up.railway.app`  
+**Local Development:** `http://localhost:5000`
+
+All examples below use the production URL.
 
 ### Endpoints
 
@@ -172,6 +217,30 @@ url-shortener/
 
 ---
 
+## 🚀 Deployment
+
+This project is deployed on Railway with automatic deploys from the `main` branch.
+
+**Platform:** [Railway](https://railway.app)  
+**Why Railway:**
+- Zero-config Python deployments
+- Automatic HTTPS
+- GitHub integration (auto-deploy on push)
+- Free tier sufficient for portfolio projects
+- Built-in PostgreSQL for Phase 2
+
+**Production Configuration:**
+- Host: `0.0.0.0` (allows external connections)
+- Port: Dynamically assigned by Railway
+- Debug: `False` (security best practice)
+- Logging: stdout (captured by Railway)
+
+**Manual Deployment:**
+Changes pushed to `main` branch automatically trigger new deployments.
+View deployment logs in Railway dashboard.
+
+---
+
 ## Technical Decisions
 
 ### Why Flask?
@@ -230,7 +299,7 @@ Building this project taught me:
 3. **Testing** - Test-driven development, pytest fixtures, test coverage
 4. **HTTP Fundamentals** - Redirects, status codes, headers
 5. **Python Best Practices** - Virtual environments, type hints, project structure
-6. **Utilizing AI** - Using AI has a mentor to help guide learning 
+6. **Utilizing AI** - Using AI as a mentor to guide learning and accelerate development
 
 **Key Challenge:** Implementing proper URL validation. Initially used basic string checking, but learned that Pydantic's `HttpUrl` type handles edge cases (internationalized domains, various schemes, port numbers) that manual validation would miss.
 
