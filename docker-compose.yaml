@@ -1,0 +1,28 @@
+name: url-shortener
+
+services:
+  db:
+    image: postgres:17
+    container_name: url_shortener_db
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_DB: urlshortener
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+        # Persists database data even when container stops
+        # Without this, data is lost when you stop Docker
+    healthcheck:
+      test: ["CMD", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      # Checks if PostgreSQL is actually ready to accept connections
+      # Prevents "connection refused" errors on startup
+
+volumes:
+  postgres_data:
+    # Defines the named volume used above
+    # Docker manages where this data lives on your Mac
