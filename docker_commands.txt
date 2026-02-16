@@ -1,0 +1,20 @@
+# Stop the database (container stops but data persists)
+docker-compose down
+
+# Start it again
+docker-compose up -d
+
+# View logs
+docker-compose logs -f db
+# -f means "follow" (live updates), Ctrl+C to exit
+
+# Restart the database
+docker-compose restart db
+
+# Nuclear option - delete everything including data
+docker-compose down -v
+# -v deletes volumes (data is GONE)
+# Only use when you want a fresh start
+
+# Show the schema (columns, types, constraints) of the urls table
+docker-compose exec db psql -U postgres -d urlshortener -c "\d urls"
