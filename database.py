@@ -9,6 +9,7 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 from dotenv import load_dotenv
+from contextlib import contextmanager
 
 # Load environment variables from .env
 load_dotenv()
@@ -21,7 +22,11 @@ if not DATABASE_URL:
 
 # Create engine - manages connections to database
 # echo=True logs all SQL queries (useful for debugging)
-engine = create_engine(DATABASE_URL, echo=True, pool_pre_ping=True)
+engine = create_engine(
+    DATABASE_URL, 
+    echo=True, 
+    pool_pre_ping=True
+)
 
 # Session factory - creates database sessions
 # Sessions are how you interact with the database
@@ -32,30 +37,32 @@ SessionLocal = sessionmaker(
 )
 
 # Base class for all models
-# All your database models will inherit from this
+# All database models will inherit from this
 Base = declarative_base()
 
 
-def get_db():
+@contextmanager
+def get_db_context():
     """
-    Get a database session.
-
-    Usage:
-        db = get_db()
-        try:
-            # Use db here
-            db.add(url_object)
+    Context manager for database sessions.
+    
+    Automatically handles commit, rollback, and cleanup.
+    
+    Usage in Flask endpoints:
+        with get_db_context() as db:
+            url = URL(short_code="abc", original_url="https://...")
+            db.add(url)
             db.commit()
-        finally:
-            db.close()
-
-    Or use as context manager (better):
-        with get_db() as db:
-            db.add(url_object)
-            db.commit()
+            db.refresh(url)
+    
+    On exception: automatically rolls back
+    On completion: automatically closes session
     """
     db = SessionLocal()
     try:
         yield db
+    except Exception:
+        db.rollback()
+        raise
     finally:
         db.close()
