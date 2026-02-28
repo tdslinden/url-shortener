@@ -209,6 +209,7 @@ if __name__ == "__main__":
     if os.environ.get('RAILWAY_ENVIRONMENT'):
         print("Running database migrations...")
         alembic_cfg = Config("alembic.ini")
+        # Basically running 'alembic upgrade head
         command.upgrade(alembic_cfg, "head")
         print("Migrations complete!")
 
