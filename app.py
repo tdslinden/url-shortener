@@ -4,6 +4,10 @@ from datetime import datetime
 import random
 import string
 import os
+from database import get_db_context, engine
+from models import URL, Base
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy import text
 
 BASE_URL = os.environ.get("BASE_URL", "http://127.0.0.1:5000")
 
@@ -21,18 +25,26 @@ class InputURL(BaseModel):
     url: HttpUrl
 
 
-# temporary in-memory storage for URLs
-urls = {}
-
 app = Flask(__name__)
 
 
 @app.route("/health", methods=["GET"])
 def health():
-    return jsonify({"status": "healthy"}), 200
+    """
+    Health check endpoint.
+
+    Includes database connectivity check.
+    """
+    try:
+        with get_db_context() as db:
+            # Test connection
+            db.execute(text("SELECT 1"))
+            return jsonify({"status": "healthy", "database": "connected"}), 200
+    except Exception as e:
+        return jsonify({"status": "unhealthy", "error": str(e)})
 
 
-def generate_code(length=6):
+def _generate_code(length=6):
     """
     Generate a random alphanumeric short code.
 
@@ -73,36 +85,52 @@ def create_url():
         return jsonify({"error": "URL is required"}), 400
 
     max_retries = 10
-    retries = 0
-    short_code = generate_code()
+    short_code = None
 
-    while short_code in urls and retries < max_retries:
-        short_code = generate_code()
-        retries += 1
+    try:
+        with get_db_context() as db:
 
-    if retries == max_retries:
+            for i in range(max_retries):
+                short_code = _generate_code()
+
+                # TODO: optimize this query
+                url_data = db.query(URL).filter(URL.short_code == short_code).first()
+
+                if not url_data:
+                    break
+
+            if short_code is None:
+                return (
+                    jsonify(
+                        {
+                            "error": "Failed to generate unique short code. Please try again."
+                        }
+                    ),
+                    500,
+                )
+
+            new_url = URL(original_url=original_url, short_code=short_code, clicks=0)
+
+            db.add(new_url)
+            db.commit()
+            db.refresh(new_url)
+
         return (
             jsonify(
-                {"error": "Failed to generate unique short code. Please try again."}
+                {
+                    "short_code": new_url.short_code,
+                    "short_url": f"{BASE_URL}/{new_url.short_code}",
+                }
             ),
-            500,
+            201,
         )
-
-    original_url = data["url"]
-    urls[short_code] = {
-        "original_url": original_url,
-        "clicks": 0,
-        "created_at": datetime.now().isoformat(),
-    }
-    return (
-        jsonify(
-            {
-                "short_code": short_code,
-                "short_url": f"{BASE_URL}/{short_code}",
-            }
-        ),
-        201,
-    )
+    except IntegrityError:
+        # Race condition - another request used the same code
+        # get_db_context() already rolled back
+        return jsonify({"error": "Collision detected. Please try again."}), 500
+    except Exception as e:
+        # get_db_context() already rolled back
+        return jsonify({"error": f"Database error: {str(e)}"}), 500
 
 
 @app.route("/<short_code>", methods=["GET"])
@@ -120,17 +148,19 @@ def redirect_to_url(short_code):
     if it was defined AFTER this function
     """
 
-    # Use get because it returns None if key doesn't exist
-    # urls[short_code] raises KeyError
-    url_data = urls.get(short_code)
+    try:
+        with get_db_context() as db:
+            url_data = db.query(URL).filter(URL.short_code == short_code).first()
 
-    if not url_data:
-        return jsonify({"error": "Invalid short code"}), 404
+            if not url_data:
+                return jsonify({"error": "Invalid short code"}), 404
 
-    urls[short_code]["clicks"] += 1
+            url_data.clicks += 1
+            db.commit()
 
-    destination_url = url_data["original_url"]
-    return redirect(destination_url, 301)
+            return redirect(url_data.original_url, 301)
+    except Exception as e:
+        return jsonify({"error": f"Database error: {str(e)}"}), 500
 
 
 @app.route("/urls/<short_code>/stats", methods=["GET"])
@@ -150,25 +180,33 @@ def get_stats(short_code):
     }
     """
 
-    url_data = urls.get(short_code)
+    try:
+        with get_db_context() as db:
+            url_data = db.query(URL).filter(URL.short_code == short_code).first()
 
-    if not url_data:
-        return jsonify({"error": "Invalid short code"}), 404
+            if not url_data:
+                return jsonify({"error": "Invalid short code"}), 404
 
-    return (
-        jsonify(
-            {
-                "short_code": short_code,
-                "original_url": url_data["original_url"],
-                "clicks": url_data["clicks"],
-                "created_at": url_data["created_at"],
-            }
-        ),
-        200,
-    )
+            return (
+                jsonify(
+                    {
+                        "short_code": url_data.short_code,
+                        "original_url": url_data.original_url,
+                        "clicks": url_data.clicks,
+                        "created_at": url_data.created_at,
+                    }
+                ),
+                200,
+            )
+    except Exception as e:
+        return jsonify({"error": f"Database error: {str(e)}"}), 500
 
 
 if __name__ == "__main__":
+    # Create tables if they don't exist (for development convenience)
+    # Production uses Alembic migrations
+    Base.metadata.create_all(bind=engine)
+
     # Get port from environment (Railway sets this) or default to 5000
     port = int(os.environ.get("PORT", 5000))
 

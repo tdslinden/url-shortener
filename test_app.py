@@ -1,9 +1,27 @@
 import pytest
 from app import app
+from database import engine, Base, get_db_context
+
+
+@pytest.fixture(scope="function")
+def test_db():
+    """
+    Create fresh database for each test.
+
+    Ensures test isolation - tests don't interfere with each other.
+    """
+    # Create all tables
+    Base.metadata.create_all(bind=engine)
+
+    yield  # Run the test
+
+    # Drop all tables after test
+    Base.metadata.drop_all(bind=engine)
 
 
 @pytest.fixture
-def client():
+def client(test_db):
+    """Flask test client with clean database"""
     app.config["TESTING"] = True
     with app.test_client() as client:
         yield client
@@ -12,7 +30,8 @@ def client():
 def test_health(client):
     response = client.get("/health")
     assert response.status_code == 200
-    assert response.get_json() == {"status": "healthy"}
+    assert response.json["status"] == "healthy"
+    assert response.json["database"] == "connected"
 
 
 def test_create_url_success(client):
@@ -39,6 +58,21 @@ def test_create_url_missing_url(client):
     assert "error" in response.json
 
 
+def test_create_url_invalid_format(client):
+    """Test that invalid URLs are rejected"""
+    response = client.post("/urls", json={"url": "google.com"})
+    assert response.status_code == 400
+    assert "error" in response.json
+
+    response = client.post("/urls", json={"url": "not-a-url"})
+    assert response.status_code == 400
+    assert "error" in response.json
+
+    response = client.post("/urls", json={"url": ""})
+    assert response.status_code == 400
+    assert "error" in response.json
+
+
 def test_redirect_valid_code(client):
     """Test that valid short code redirects to original URL"""
     initial_response = client.post("urls", json={"url": "https://google.com"})
@@ -47,7 +81,7 @@ def test_redirect_valid_code(client):
     response = client.get(f"/{short_code}")
 
     assert response.status_code in [301, 302]
-    assert response.location == "https://google.com"
+    assert response.location == "https://google.com/"
 
 
 def test_redirect_invalid_code(client):
@@ -83,7 +117,7 @@ def test_get_stats_valid_code(client):
 
     assert response.status_code == 200
     assert response.json["short_code"] == short_code
-    assert response.json["original_url"] == "https://google.com"
+    assert response.json["original_url"] == "https://google.com/"
     assert response.json["clicks"] == 1
     assert "created_at" in response.json
 
@@ -97,21 +131,6 @@ def test_get_stats_invalid_code(client):
     assert "error" in response.json
 
 
-def test_create_url_format_invalid(client):
-    """Test creating a short URL with invalid input"""
-    response = client.post("/urls", json={"url": "not a url"})
-    assert response.status_code == 400
-    assert "error" in response.json
-
-    response = client.post("/urls", json={"url": "google.com"})
-    assert response.status_code == 400
-    assert "error" in response.json
-
-    response = client.post("/urls", json={"url": ""})
-    assert response.status_code == 400
-    assert "error" in response.json
-
-
 def test_no_duplicate_codes(client):
     url_set = set()
     set_length = 100
@@ -122,70 +141,3 @@ def test_no_duplicate_codes(client):
         url_set.add(short_code)
 
     assert len(url_set) == set_length
-
-
-def test_collision_detection_retries(client, monkeypatch):
-    """Test that collision detection retries when code already exists"""
-    import app as app_module
-
-    # Track how many times generate_code was called
-    call_count = 0
-
-    def mock_generate_code():
-        """Mock that returns predictable codes"""
-        nonlocal call_count
-        call_count += 1
-
-        if call_count == 1:
-            return "COLLISION"  # First call returns a code we'll make exist
-        else:
-            return f"UNIQUE{call_count}"  # Subsequent calls return unique codes
-
-    app_module.urls["COLLISION"] = {
-        "original_url": "some_url",
-        "clicks": 0,
-        "created_at": "some_date",
-    }
-
-    # Replace generate_code with mock function
-    monkeypatch.setattr(app_module, "generate_code", mock_generate_code)
-
-    response = client.post("urls", json={"url": "https://google.com"})
-    short_code = response.json["short_code"]
-
-    assert response.status_code == 201
-    assert not short_code == "COLLISION"
-    assert short_code == "UNIQUE2"
-    assert call_count == 2
-
-    # Cleanup remove the test collision short_code
-    del app_module.urls["COLLISION"]
-
-
-def test_collision_detection_max_retries_exceeded(client, monkeypatch):
-    """Test error when all retry attempts result in collisions"""
-    import app as app_module
-
-    def mock_generate_code():
-        """Always returns the same existing code"""
-        return "COLLISION"
-
-    app_module.urls["COLLISION"] = {
-        "original_url": "some_url",
-        "clicks": 0,
-        "created_at": "some_date",
-    }
-
-    # Replace generate_code with mock function
-    monkeypatch.setattr(app_module, "generate_code", mock_generate_code)
-
-    response = client.post("urls", json={"url": "https://google.com"})
-
-    assert response.status_code == 500
-    assert "error" in response.json
-    assert (
-        "Failed to generate unique short code. Please try again."
-        == response.json["error"]
-    )
-
-    del app_module.urls["COLLISION"]

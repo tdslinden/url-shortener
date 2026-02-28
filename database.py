@@ -22,11 +22,7 @@ if not DATABASE_URL:
 
 # Create engine - manages connections to database
 # echo=True logs all SQL queries (useful for debugging)
-engine = create_engine(
-    DATABASE_URL, 
-    echo=True, 
-    pool_pre_ping=True
-)
+engine = create_engine(DATABASE_URL, echo=True, pool_pre_ping=True)
 
 # Session factory - creates database sessions
 # Sessions are how you interact with the database
@@ -45,16 +41,16 @@ Base = declarative_base()
 def get_db_context():
     """
     Context manager for database sessions.
-    
+
     Automatically handles commit, rollback, and cleanup.
-    
+
     Usage in Flask endpoints:
         with get_db_context() as db:
             url = URL(short_code="abc", original_url="https://...")
             db.add(url)
             db.commit()
             db.refresh(url)
-    
+
     On exception: automatically rolls back
     On completion: automatically closes session
     """
