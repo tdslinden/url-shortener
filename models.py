@@ -25,8 +25,3 @@ class URL(Base):
     def __repr__(self) -> str:
         """String representation for debugging"""
         return f"<URL(short_code='{self.short_code}', clicks={self.clicks})>"
-
-
-# Create composite index for common queries
-# Example: finding URLs by creation date range
-Index("idx_created_at", URL.created_at)
