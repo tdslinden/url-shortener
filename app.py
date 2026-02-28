@@ -8,6 +8,8 @@ from database import get_db_context, engine
 from models import URL, Base
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import text
+from alembic.config import Config
+from alembic import command
 
 BASE_URL = os.environ.get("BASE_URL", "http://127.0.0.1:5000")
 
@@ -203,6 +205,13 @@ def get_stats(short_code):
 
 
 if __name__ == "__main__":
+    # Run migrations on startup (Railway deployment)
+    if os.environ.get('RAILWAY_ENVIRONMENT'):
+        print("Running database migrations...")
+        alembic_cfg = Config("alembic.ini")
+        command.upgrade(alembic_cfg, "head")
+        print("Migrations complete!")
+
     # Create tables if they don't exist (for development convenience)
     # Production uses Alembic migrations
     Base.metadata.create_all(bind=engine)
