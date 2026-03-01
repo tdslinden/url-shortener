@@ -1,20 +1,219 @@
-# Stop the database (container stops but data persists)
-docker-compose down
+# ============================================
+# DOCKER COMPOSE CHEAT SHEET - URL SHORTENER
+# ============================================
 
-# Start it again
+# --------------------------------------------
+# BASIC OPERATIONS
+# --------------------------------------------
+
+# Start all services (in background)
 docker-compose up -d
 
-# View logs
-docker-compose logs -f db
-# -f means "follow" (live updates), Ctrl+C to exit
+# Stop all services (keeps data)
+docker-compose down
 
-# Restart the database
+# Stop all services + DELETE ALL DATA (⚠️ DESTRUCTIVE)
+docker-compose down -v
+
+# Restart a service (keeps data)
 docker-compose restart db
 
-# Nuclear option - delete everything including data
-docker-compose down -v
-# -v deletes volumes (data is GONE)
-# Only use when you want a fresh start
+# View status of services
+docker-compose ps
 
-# Show the schema (columns, types, constraints) of the urls table
+# --------------------------------------------
+# LOGS & DEBUGGING
+# --------------------------------------------
+
+# View logs (all services)
+docker-compose logs
+
+# View logs (specific service)
+docker-compose logs db
+
+# Follow logs in real-time (Ctrl+C to exit, doesn't stop container)
+docker-compose logs -f db
+
+# View last 50 lines of logs
+docker-compose logs --tail=50 db
+
+# --------------------------------------------
+# DATABASE ACCESS
+# --------------------------------------------
+
+# Interactive PostgreSQL shell
+docker-compose exec db psql -U postgres -d urlshortener
+
+# Run single SQL command
+docker-compose exec db psql -U postgres -d urlshortener -c "SELECT COUNT(*) FROM urls;"
+
+# Common psql commands (use inside interactive shell):
+# \dt              - List all tables
+# \d urls          - Describe urls table structure
+# \l               - List all databases
+# \du              - List users
+# \q               - Quit
+
+# --------------------------------------------
+# COMMON WORKFLOWS
+# --------------------------------------------
+
+# Fresh start (delete everything and restart)
+docker-compose down -v
+docker-compose up -d
+
+# Restart database without losing data
+docker-compose restart db
+
+# Check if database is running
+docker-compose ps db
+
+# View database logs for errors
+docker-compose logs --tail=100 db
+
+# --------------------------------------------
+# INSPECTING DATA
+# --------------------------------------------
+
+# List all tables
+docker-compose exec db psql -U postgres -d urlshortener -c "\dt"
+
+# Show urls table structure
 docker-compose exec db psql -U postgres -d urlshortener -c "\d urls"
+
+# Count URLs in database
+docker-compose exec db psql -U postgres -d urlshortener -c "SELECT COUNT(*) FROM urls;"
+
+# View first 10 URLs
+docker-compose exec db psql -U postgres -d urlshortener -c "SELECT * FROM urls LIMIT 10;"
+
+# Find URL by short_code
+docker-compose exec db psql -U postgres -d urlshortener -c "SELECT * FROM urls WHERE short_code='abc123';"
+
+# --------------------------------------------
+# TROUBLESHOOTING
+# --------------------------------------------
+
+# Database won't start
+docker-compose down
+docker-compose up -d
+docker-compose logs -f db
+
+# Connection refused errors
+# Wait 5-10 seconds after 'docker-compose up -d' for database to be ready
+docker-compose exec db psql -U postgres -d urlshortener -c "SELECT 1;"
+
+# Port already in use
+docker-compose down
+# Check what's using port 5432: lsof -i :5432
+# Kill it or change port in docker-compose.yaml
+
+# Nuclear option - delete everything and start over
+docker-compose down -v
+docker system prune -a --volumes  # ⚠️ Deletes ALL Docker data
+docker-compose up -d
+
+# --------------------------------------------
+# DEVELOPMENT WORKFLOW
+# --------------------------------------------
+
+# Morning startup
+docker-compose up -d
+# Wait 5 seconds for database to be ready
+python app.py
+
+# Testing migrations from scratch
+docker-compose down -v                      # Delete all data
+docker-compose up -d                        # Start fresh
+alembic upgrade head                        # Run migrations
+python app.py                               # Test app
+
+# End of day
+docker-compose down                         # Stop containers, keep data
+
+# --------------------------------------------
+# UNDERSTANDING YOUR SETUP
+# --------------------------------------------
+
+# Your docker-compose.yaml defines:
+# - Service: db (PostgreSQL 17)
+# - Container name: url_shortener_db
+# - Port: 5432 (PostgreSQL default)
+# - Volume: postgres_data (persists data)
+# - Database: urlshortener
+# - User: postgres
+# - Password: postgres
+
+# Data location:
+# - Container: /var/lib/postgresql/data
+# - Volume: postgres_data (managed by Docker)
+# - To see where Docker stores it: docker volume inspect postgres_data
+
+# --------------------------------------------
+# DANGEROUS COMMANDS (USE WITH CAUTION)
+# --------------------------------------------
+
+# Delete all data (can't undo)
+docker-compose down -v
+
+# Delete specific volume
+docker volume rm url-shortener_postgres_data
+
+# Delete all unused volumes
+docker volume prune
+
+# --------------------------------------------
+# QUICK REFERENCE
+# --------------------------------------------
+
+# Start:     docker-compose up -d
+# Stop:      docker-compose down
+# Restart:   docker-compose restart db
+# Logs:      docker-compose logs -f db
+# Shell:     docker-compose exec db psql -U postgres -d urlshortener
+# Nuke:      docker-compose down -v
+
+# --------------------------------------------
+# PSQL INTERACTIVE COMMANDS
+# --------------------------------------------
+
+# Once inside psql (docker-compose exec db psql -U postgres -d urlshortener):
+
+# \dt                          - List tables
+# \d urls                      - Describe urls table
+# \l                           - List databases
+# \du                          - List users
+# \c urlshortener              - Connect to database
+# \q                           - Quit
+# SELECT * FROM urls LIMIT 5;  - Query data
+# \x                           - Toggle expanded display (better for wide tables)
+
+# --------------------------------------------
+# COMMON ERRORS & FIXES
+# --------------------------------------------
+
+# Error: "connection refused"
+# Fix: Wait 5-10 seconds after starting, database needs time to initialize
+
+# Error: "relation does not exist"
+# Fix: Run migrations: alembic upgrade head
+
+# Error: "port 5432 already in use"
+# Fix: docker-compose down, then check: lsof -i :5432
+
+# Error: "password authentication failed"
+# Fix: Check DATABASE_URL in .env matches docker-compose.yaml credentials
+
+# --------------------------------------------
+# NOTES
+# --------------------------------------------
+
+# - Always use -d flag with 'up' to run in background
+# - docker-compose down does NOT delete data (volumes persist)
+# - docker-compose down -v DOES delete data (destructive)
+# - Ctrl+C in logs doesn't stop container, just exits log view
+# - Container name vs service name:
+#   - Service name: db (used in docker-compose commands)
+#   - Container name: url_shortener_db (shown in Docker Desktop)
+
+EOF
