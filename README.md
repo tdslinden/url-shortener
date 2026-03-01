@@ -19,6 +19,22 @@ A production-ready URL shortening service built with Python, Flask, and Pydantic
 
 ---
 
+## Production Architecture
+```
+┌─────────────┐      ┌──────────────┐      ┌────────────────┐
+│   Client    │─────▶│  Flask App   │─────▶│  PostgreSQL    │
+│  (Browser)  │      │  (Railway)   │      │   (Railway)    │
+└─────────────┘      └──────────────┘      └────────────────┘
+                            │
+                            ▼
+                     Environment Vars:
+                     - DATABASE_URL
+                     - BASE_URL
+                     - DEBUG=False
+```
+
+---
+
 ## 🎯 Quick Demo
 
 Try the live API right now - no installation needed!
@@ -80,7 +96,8 @@ GET /health
 **Response:**
 ```json
 {
-  "status": "healthy"
+  "database":"connected",
+  "status":"healthy"
 }
 ```
 

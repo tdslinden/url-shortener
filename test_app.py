@@ -80,7 +80,7 @@ def test_redirect_valid_code(client):
 
     response = client.get(f"/{short_code}")
 
-    assert response.status_code in [301, 302]
+    assert response.status_code == 302
     assert response.location == "https://google.com/"
 
 
@@ -102,7 +102,7 @@ def test_redirect_incremental_clicks(client):
     # Check clicks were tracked (we'll build stats endpoint tomorrow)
     # For now, just verify redirect still works after multiple accesses
     response = client.get(f"/{short_code}")
-    assert response.status_code in [301, 302]
+    assert response.status_code == 302
 
 
 def test_get_stats_valid_code(client):
@@ -112,13 +112,14 @@ def test_get_stats_valid_code(client):
     short_code = initial_response.json["short_code"]
 
     client.get(f"/{short_code}")
+    client.get(f"/{short_code}")
 
     response = client.get(f"/urls/{short_code}/stats")
 
     assert response.status_code == 200
     assert response.json["short_code"] == short_code
     assert response.json["original_url"] == "https://google.com/"
-    assert response.json["clicks"] == 1
+    assert response.json["clicks"] == 2
     assert "created_at" in response.json
 
 
