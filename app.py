@@ -160,7 +160,7 @@ def redirect_to_url(short_code):
             url_data.clicks += 1
             db.commit()
 
-            return redirect(url_data.original_url, 301)
+            return redirect(url_data.original_url, 302)
     except Exception as e:
         return jsonify({"error": f"Database error: {str(e)}"}), 500
 
@@ -206,7 +206,7 @@ def get_stats(short_code):
 
 if __name__ == "__main__":
     # Run migrations on startup (Railway deployment)
-    if os.environ.get('RAILWAY_ENVIRONMENT'):
+    if os.environ.get("RAILWAY_ENVIRONMENT"):
         print("Running database migrations...")
         alembic_cfg = Config("alembic.ini")
         # Basically running 'alembic upgrade head
@@ -217,11 +217,13 @@ if __name__ == "__main__":
     # Production uses Alembic migrations
     Base.metadata.create_all(bind=engine)
 
-    # Get port from environment (Railway sets this) or default to 5000
-    port = int(os.environ.get("PORT", 5000))
+    # Only use Flask dev server locally
+    if not os.environ.get('RAILWAY_ENVIRONMENT'):
+        # Get port from environment (Railway sets this) or default to 5000
+        port = int(os.environ.get("PORT", 5000))
 
-    # Get debug mode from environment (default False for production)
-    debug = os.environ.get("DEBUG", "false").lower() == "true"
+        # Get debug mode from environment (default False for production)
+        debug = os.environ.get("DEBUG", "false").lower() == "true"
 
-    # host='0.0.0.0' allows external connections (required for Railway)
-    app.run(host="0.0.0.0", port=port, debug=debug)
+        # host='0.0.0.0' allows external connections (required for Railway)
+        app.run(host="0.0.0.0", port=port, debug=debug)
