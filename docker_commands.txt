@@ -216,4 +216,17 @@ docker volume prune
 #   - Service name: db (used in docker-compose commands)
 #   - Container name: url_shortener_db (shown in Docker Desktop)
 
+# --------------------------------------------
+# RUNNING THE APP
+# --------------------------------------------
+
+# Local development (Flask dev server)
+python app.py
+
+# Local production simulation (Gunicorn)
+gunicorn app:app --workers 2 --bind 0.0.0.0:5000 --reload
+
+# Run migrations before starting
+alembic upgrade head
+
 EOF
